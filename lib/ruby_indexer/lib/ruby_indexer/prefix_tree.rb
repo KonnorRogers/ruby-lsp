@@ -71,6 +71,38 @@ module RubyIndexer
       node.leaf = true
     end
 
+    # Bulk inserts all given values. This is faster than inserting items one by one as long as the items are sorted by
+    # their keys
+    sig { params(items: T::Array[[String, Value]]).void }
+    def insert_all(items)
+      node = @root
+      current_key = +""
+      current_parent = node
+
+      items.each_with_index do |(key, value), index|
+        if key.start_with?(current_key)
+          node = current_parent
+        else
+          current_key.clear
+          node = @root
+        end
+
+        key[current_key.length..-1].each_char do |char|
+          node = node.children[char] ||= Node.new(char, value, node)
+
+          next_key, _next_value = items[index + 1]
+
+          if next_key&.start_with?(current_key + char)
+            current_parent = node
+            current_key << char
+          end
+        end
+
+        node.value = value
+        node.leaf = true
+      end
+    end
+
     # Deletes the entry identified by `key` from the tree. Notice that a partial match will still delete all entries
     # that match it. For example, if the tree contains `foo` and we ask to delete `fo`, then `foo` will be deleted
     sig { params(key: String).void }

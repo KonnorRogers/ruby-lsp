@@ -146,5 +146,21 @@ module RubyIndexer
       tree.insert("foo/bar", 456)
       assert_equal([456], tree.search("foo/bar"))
     end
+
+    def test_insert_all
+      tree = PrefixTree[String].new
+      tree.insert_all([
+        ["foo", "foo"],
+        ["bar", "bar"],
+        ["baz", "baz"],
+      ])
+
+      assert_equal(["foo", "bar", "baz"], tree.search(""))
+      assert_equal(["bar", "baz"], tree.search("b"))
+      assert_equal(["foo"], tree.search("fo"))
+      assert_equal(["bar", "baz"], tree.search("ba"))
+      assert_equal(["baz"], tree.search("baz"))
+      assert_empty(tree.search("qux"))
+    end
   end
 end
