@@ -31,6 +31,8 @@ module RubyIndexer
 
       # Holds all require paths for every indexed item so that we can provide autocomplete for requires
       @require_paths_tree = T.let(PrefixTree[IndexablePath].new, PrefixTree[IndexablePath])
+
+      @running_initial_indexing = T.let(false, T::Boolean)
     end
 
     sig { params(indexable: IndexablePath).void }
@@ -67,7 +69,7 @@ module RubyIndexer
 
       (@entries[name] ||= []) << entry
       (@files_to_entries[entry.file_path] ||= []) << entry
-      @entries_tree.insert(name, T.must(@entries[name]))
+      @entries_tree.insert(name, T.must(@entries[name])) unless @running_initial_indexing
     end
 
     sig { params(fully_qualified_name: String).returns(T.nilable(T::Array[Entry])) }
@@ -172,6 +174,7 @@ module RubyIndexer
       # Calculate how many paths are worth 1% of progress
       progress_step = (indexable_paths.length / 100.0).ceil
 
+      @running_initial_indexing = true
       indexable_paths.each_with_index do |path, index|
         if block && index % progress_step == 0
           progress = (index / progress_step) + 1
@@ -180,6 +183,9 @@ module RubyIndexer
 
         index_single(path)
       end
+
+      @running_initial_indexing = false
+      @entries_tree.insert_all(@entries.sort_by(&:first))
     end
 
     sig { params(indexable_path: IndexablePath, source: T.nilable(String)).void }
