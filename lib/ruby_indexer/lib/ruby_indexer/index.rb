@@ -186,6 +186,16 @@ module RubyIndexer
 
       @running_initial_indexing = false
       @entries_tree.insert_all(@entries.sort_by(&:first))
+
+      entries_with_require_path = indexable_paths.filter_map do |path|
+        require_path = path.require_path
+
+        if require_path
+          [require_path, path]
+        end
+      end.sort_by!(&:first)
+
+      @require_paths_tree.insert_all(entries_with_require_path)
     end
 
     sig { params(indexable_path: IndexablePath, source: T.nilable(String)).void }
@@ -194,9 +204,6 @@ module RubyIndexer
       result = Prism.parse(content)
       collector = Collector.new(self, result, indexable_path.full_path)
       collector.collect(result.value)
-
-      require_path = indexable_path.require_path
-      @require_paths_tree.insert(require_path, indexable_path) if require_path
     rescue Errno::EISDIR, Errno::ENOENT
       # If `path` is a directory, just ignore it and continue indexing. If the file doesn't exist, then we also ignore
       # it
