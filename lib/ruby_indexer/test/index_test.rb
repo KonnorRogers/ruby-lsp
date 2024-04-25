@@ -304,5 +304,159 @@ module RubyIndexer
       assert_empty(@index.instance_variable_get(:@constant_entries))
       assert_empty(@index.instance_variable_get(:@method_entries))
     end
+
+    def test_linearized_ancestors_basic_ordering
+      index(<<~RUBY)
+        module A; end
+        module B; end
+
+        class Foo
+          prepend A
+          prepend B
+        end
+
+        class Bar
+          include A
+          include B
+        end
+      RUBY
+
+      assert_equal(
+        [
+          "B",
+          "A",
+          "Foo",
+          # "Object",
+          # "Kernel",
+          # "BasicObject",
+        ],
+        @index.linearized_ancestors_of("Foo").map(&:name),
+      )
+
+      assert_equal(
+        [
+          "Bar",
+          "B",
+          "A",
+          # "Object",
+          # "Kernel",
+          # "BasicObject",
+        ],
+        @index.linearized_ancestors_of("Bar").map(&:name),
+      )
+    end
+
+    def test_linearized_ancestors
+      index(<<~RUBY)
+        module A; end
+        module B; end
+        module C; end
+
+        module D
+          include A
+        end
+
+        module E
+          prepend B
+        end
+
+        module F
+          include C
+          include A
+        end
+
+        class Bar
+          prepend F
+        end
+
+        class Foo < Bar
+          include E
+          prepend D
+        end
+      RUBY
+
+      # Object, Kernel and BasicObject are intentionally commented out for now until we develop a strategy for indexing
+      # declarations made in C code
+      assert_equal(
+        [
+          "D",
+          "A",
+          "Foo",
+          "B",
+          "E",
+          "F",
+          "A",
+          "C",
+          "Bar",
+          # "Object",
+          # "Kernel",
+          # "BasicObject",
+        ],
+        @index.linearized_ancestors_of("Foo").map(&:name),
+      )
+    end
+
+    def test_linearized_ancestors_duplicates
+      index(<<~RUBY)
+        module A; end
+        module B
+          include A
+        end
+
+        class Foo
+          include B
+          include A
+        end
+
+        class Bar
+          prepend B
+          prepend A
+        end
+      RUBY
+
+      assert_equal(
+        [
+          "Foo",
+          "B",
+          "A",
+          # "Object",
+          # "Kernel",
+          # "BasicObject",
+        ],
+        @index.linearized_ancestors_of("Foo").map(&:name),
+      )
+
+      assert_equal(
+        [
+          "B",
+          "A",
+          "Bar",
+          # "Object",
+          # "Kernel",
+          # "BasicObject",
+        ],
+        @index.linearized_ancestors_of("Bar").map(&:name),
+      )
+    end
+
+    def test_linearizing_ancestors_is_cached
+      index(<<~RUBY)
+        module A; end
+        module B
+          include A
+        end
+
+        class Foo
+          include B
+          include A
+        end
+      RUBY
+
+      @index.linearized_ancestors_of("Foo")
+
+      assert_equal(["A"], @index.get_constant("A").ancestors.map(&:name))
+      assert_equal(["B", "A"], @index.get_constant("B").ancestors.map(&:name))
+      assert_equal(["Foo", "B", "A"], @index.get_constant("Foo").ancestors.map(&:name))
+    end
   end
 end

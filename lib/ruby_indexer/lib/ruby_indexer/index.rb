@@ -308,6 +308,54 @@ module RubyIndexer
       @method_entries.dig(method_name, receiver_name)
     end
 
+    # Linearizes the ancestors for a given name, returning the order of namespace in which Ruby will search for method
+    # or constant declarations.
+    #
+    # When we add an ancestor in Ruby, that namespace might have ancestors of its own. Therefore, we need to linearize
+    # everything recursively to ensure that we are placing ancestors in the right order. For example, if you include a
+    # module that prepends another module, then the prepend module appears before the included module.
+    #
+    # The rough order of ancestors is [prepends, self, includes, superclass]
+    sig { params(name: String).returns(T::Array[Entry::Namespace]) }
+    def linearized_ancestors_of(name)
+      ancestors = []
+      entry = get_constant(name)
+      return ancestors unless entry.is_a?(Entry::Namespace)
+
+      # If we already computed the ancestors for this entry, return it straight away
+      cached_ancestors = entry.ancestors
+      return cached_ancestors if cached_ancestors
+
+      # Process prepends, putting them first in the ancestor array. We process the prepends in the order in which they
+      # appear, which is necessary to get the correct behavior when the same module is prepended twice in the same
+      # ancestor chain. This is why we always subtract the current linearized prepends from the array we are prepending
+      linearized_prepends = []
+      entry.prepended_modules.each do |module_name|
+        T.unsafe(linearized_prepends).prepend(*(linearized_ancestors_of(module_name) - linearized_prepends))
+      end
+      ancestors.concat(linearized_prepends)
+
+      # After prepend modules, the class/module itself is inserted in the chain
+      ancestors << entry
+
+      # Then come included modules, which are also processed in the order in which they appear. We use the exact same
+      # technique to get the right order when there are duplicate inclusions
+      linearized_includes = []
+      entry.included_modules.each do |module_name|
+        T.unsafe(linearized_includes).prepend(*(linearized_ancestors_of(module_name) - linearized_includes))
+      end
+      ancestors.concat(linearized_includes)
+
+      # Finally, the last ancestors are the ones related to the parent class
+      if entry.is_a?(Entry::Class)
+        superclass = entry.parent_class
+        ancestors.concat(linearized_ancestors_of(superclass)) if superclass
+      end
+
+      entry.ancestors = ancestors
+      ancestors
+    end
+
     private
 
     # Attempts to resolve an UnresolvedAlias into a resolved Alias. If the unresolved alias is pointing to a constant

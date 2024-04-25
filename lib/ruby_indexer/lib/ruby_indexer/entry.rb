@@ -105,22 +105,37 @@ module RubyIndexer
 
       abstract!
 
-      sig { returns(T::Array[String]) }
-      attr_accessor :included_modules
-
-      sig { returns(T::Array[String]) }
-      attr_accessor :prepended_modules
+      sig { returns(T.nilable(T::Array[Namespace])) }
+      attr_reader :ancestors
 
       sig { params(name: String).void }
       def initialize(name)
         super(name)
-        @included_modules = T.let([], T::Array[String])
-        @prepended_modules = T.let([], T::Array[String])
+        @ancestors = T.let(nil, T.nilable(T::Array[Namespace]))
+      end
+
+      sig { params(ancestors: T::Array[Namespace]).void }
+      def ancestors=(ancestors)
+        @ancestors = ancestors
+
+        # After the ancestors are linearized, we can drop the unresolved ancestor storage
+        @included_modules = nil
+        @prepended_modules = nil
       end
 
       sig { returns(String) }
       def short_name
         T.must(@name.split("::").last)
+      end
+
+      sig { returns(T::Array[String]) }
+      def included_modules
+        @included_modules ||= T.let([], T.nilable(T::Array[String]))
+      end
+
+      sig { returns(T::Array[String]) }
+      def prepended_modules
+        @prepended_modules ||= T.let([], T.nilable(T::Array[String]))
       end
     end
 
