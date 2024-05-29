@@ -1,0 +1,84 @@
+# typed: strict
+# frozen_string_literal: true
+
+module RubyLsp
+  module Requests
+    # ![Prepare type hierarchy demo](../../prepare_type_hierarchy.gif)
+    #
+    # The [prepare type hierarchy
+    # request](https://microsoft.github.io/language-server-protocol/specification#textDocument_prepareTypeHierarchy)
+    # displays the list of ancestors (supertypes) and descendants (subtypes) for the selected type.
+    #
+    # Currently only supports supertypes due to a limitation of the index.
+    #
+    # # Example
+    #
+    # ```ruby
+    # class Foo; end
+    # class Bar < Foo; end
+    #
+    # puts Bar # <-- right click on `Bar` and select "Show Type Hierarchy"
+    # ```
+    class PrepareTypeHierarchy < Request
+      extend T::Sig
+
+      include Support::Common
+
+      class << self
+        extend T::Sig
+
+        sig { returns(Interface::TypeHierarchyOptions) }
+        def provider
+          Interface::TypeHierarchyOptions.new
+        end
+      end
+
+      sig do
+        params(
+          document: Document,
+          index: RubyIndexer::Index,
+          position: T::Hash[Symbol, T.untyped],
+        ).void
+      end
+      def initialize(document, index, position)
+        super()
+
+        @document = document
+        @index = index
+        @position = position
+      end
+
+      sig { override.returns(T.nilable(T::Array[Interface::TypeHierarchyItem])) }
+      def perform
+        context = @document.locate_node(
+          @position,
+          node_types: [
+            Prism::ConstantReadNode,
+            Prism::ConstantWriteNode,
+            Prism::ConstantPathNode,
+          ],
+        )
+
+        node = context.node
+        parent = context.parent
+        return unless node && parent
+
+        target = determine_target(node, parent, @position)
+        entries = @index.resolve(target.slice, context.nesting)
+        return unless entries
+
+        entries.map do |entry|
+          range = range_from_location(entry.location)
+
+          Interface::TypeHierarchyItem.new(
+            name: entry.name,
+            kind: kind_for_entry(entry),
+            uri: URI::Generic.from_path(path: entry.file_path).to_s,
+            range: range,
+            selection_range: range,
+          )
+        end
+      end
+    end
+  end
+end
