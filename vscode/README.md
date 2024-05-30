@@ -297,37 +297,9 @@ Please note that only Docker is officially supported as a backend by the Dev Con
 On its own, the Ruby LSP does not collect any telemetry by default, but it does support hooking up to a private metrics
 service if desired.
 
-In order to receive metrics requests, a private plugin must export the `ruby-lsp.getPrivateTelemetryApi` command, which
-should return an object that implements the `TelemetryApi` interface defined
-[here](https://github.com/Shopify/ruby-lsp/blob/main/vscode/src/telemetry.ts).
-
-Fields included by default are defined in `TelemetryEvent`
-[here](https://github.com/Shopify/ruby-lsp/blob/main/vscode/src/telemetry.ts). The exported API object can add any
-other data of interest and publish it to a private service.
-
-For example,
-
-```typescript
-// Create the API class in a private plugin
-class MyApi implements TelemetryApi {
-  sendEvent(event: TelemetryEvent): Promise<void> {
-    // Add timestamp to collected metrics
-    const payload = {
-      timestamp: Date.now(),
-      ...event,
-    };
-
-    // Send metrics to a private service
-    myFavouriteHttpClient.post("private-metrics-url", payload);
-  }
-}
-
-// Register the command to return an object of the API
-vscode.commands.registerCommand(
-  "ruby-lsp.getPrivateTelemetryApi",
-  () => new MyApi(),
-);
-```
+In order to receive metrics requests, a private plugin must export the `getTelemetrySender` command, which should return
+an object that implements the
+[vscode.TelemetrySender](https://code.visualstudio.com/api/references/vscode-api#TelemetrySender);
 
 ## Formatting
 
