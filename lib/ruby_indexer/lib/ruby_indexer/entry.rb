@@ -128,6 +128,36 @@ module RubyIndexer
       def ancestor_hash
         mixin_operation_module_names.hash
       end
+
+      sig do
+        params(
+          location: T.nilable(Prism::Location),
+          comments: T.nilable(T::Array[String]),
+        ).returns(SingletonClass)
+      end
+      def singleton_klass(location = nil, comments = nil)
+        # Ruby allows for an unlimited number of singleton classes. Every time `singleton_class` is invoked, a new
+        # singleton class is created.
+        #
+        # Note: we name this method `singleton_klass` to avoid conflicting with Ruby's own `singleton_class` method,
+        # which would cause confusion
+
+        # If we created the singleton class to add methods, but later found a singleton class block, then we can update
+        # the declaration location to be more specific and add extra comments to the documentation of the singleton
+        singleton.update_location(location) if location
+        singleton.add_comments(comments) if comments
+        singleton
+      end
+
+      private
+
+      sig { returns(SingletonClass) }
+      def singleton
+        @singleton_klass ||= T.let(
+          SingletonClass.new(@nesting, @file_path, @location, [], nil),
+          T.nilable(SingletonClass),
+        )
+      end
     end
 
     class Module < Namespace
@@ -159,6 +189,25 @@ module RubyIndexer
       sig { override.returns(Integer) }
       def ancestor_hash
         [mixin_operation_module_names, @parent_class].hash
+      end
+    end
+
+    class SingletonClass < Class
+      extend T::Sig
+
+      sig { params(location: Prism::Location).void }
+      def update_location(location)
+        @location = Location.new(
+          location.start_line,
+          location.end_line,
+          location.start_column,
+          location.end_column,
+        )
+      end
+
+      sig { params(comments: T::Array[String]).void }
+      def add_comments(comments)
+        @comments.concat(comments)
       end
     end
 
