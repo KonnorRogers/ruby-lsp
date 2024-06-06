@@ -294,72 +294,27 @@ module RubyIndexer
 
     sig { params(node: Prism::InstanceVariableWriteNode).void }
     def on_instance_variable_write_node_enter(node)
-      name = node.name.to_s
-      return if name == "@"
-
-      @index << Entry::InstanceVariable.new(
-        name,
-        @file_path,
-        node.name_loc,
-        collect_comments(node),
-        @owner_stack.last,
-      )
+      handle_instance_variable(node, node.name_loc)
     end
 
     sig { params(node: Prism::InstanceVariableAndWriteNode).void }
     def on_instance_variable_and_write_node_enter(node)
-      name = node.name.to_s
-      return if name == "@"
-
-      @index << Entry::InstanceVariable.new(
-        name,
-        @file_path,
-        node.name_loc,
-        collect_comments(node),
-        @owner_stack.last,
-      )
+      handle_instance_variable(node, node.name_loc)
     end
 
     sig { params(node: Prism::InstanceVariableOperatorWriteNode).void }
     def on_instance_variable_operator_write_node_enter(node)
-      name = node.name.to_s
-      return if name == "@"
-
-      @index << Entry::InstanceVariable.new(
-        name,
-        @file_path,
-        node.name_loc,
-        collect_comments(node),
-        @owner_stack.last,
-      )
+      handle_instance_variable(node, node.name_loc)
     end
 
     sig { params(node: Prism::InstanceVariableOrWriteNode).void }
     def on_instance_variable_or_write_node_enter(node)
-      name = node.name.to_s
-      return if name == "@"
-
-      @index << Entry::InstanceVariable.new(
-        name,
-        @file_path,
-        node.name_loc,
-        collect_comments(node),
-        @owner_stack.last,
-      )
+      handle_instance_variable(node, node.name_loc)
     end
 
     sig { params(node: Prism::InstanceVariableTargetNode).void }
     def on_instance_variable_target_node_enter(node)
-      name = node.name.to_s
-      return if name == "@"
-
-      @index << Entry::InstanceVariable.new(
-        name,
-        @file_path,
-        node.location,
-        collect_comments(node),
-        @owner_stack.last,
-      )
+      handle_instance_variable(node, node.location)
     end
 
     sig { params(node: Prism::AliasMethodNode).void }
@@ -377,6 +332,30 @@ module RubyIndexer
     end
 
     private
+
+    sig do
+      params(
+        node: T.any(
+          Prism::InstanceVariableAndWriteNode,
+          Prism::InstanceVariableOperatorWriteNode,
+          Prism::InstanceVariableOrWriteNode,
+          Prism::InstanceVariableTargetNode,
+          Prism::InstanceVariableWriteNode,
+        ),
+        loc: Prism::Location,
+      ).void
+    end
+    def handle_instance_variable(node, loc)
+      name = node.name.to_s
+      return if name == "@"
+
+      # When instance variables are declared inside the class body, they turn into class instance variables rather than
+      # regular instance variables
+      owner = @owner_stack.last
+      owner = owner&.singleton_klass unless @inside_def
+
+      @index << Entry::InstanceVariable.new(name, @file_path, loc, collect_comments(node), owner)
+    end
 
     sig { params(node: Prism::CallNode).void }
     def handle_private_constant(node)
