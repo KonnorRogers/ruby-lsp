@@ -503,5 +503,18 @@ module RubyIndexer
       assert_equal(3, singleton.location.start_line)
       assert_equal("Some extra comments", singleton.comments.join("\n"))
     end
+
+    def test_namespaces_inside_singleton_blocks
+      index(<<~RUBY)
+        class Foo
+          class << self
+            class Bar
+            end
+          end
+        end
+      RUBY
+
+      assert_entry("Foo::<Class:Foo>::Bar", Entry::Class, "/fake/path/foo.rb:2-4:3-7")
+    end
   end
 end

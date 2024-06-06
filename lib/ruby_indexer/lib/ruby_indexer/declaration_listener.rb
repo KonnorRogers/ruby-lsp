@@ -120,7 +120,11 @@ module RubyIndexer
       @visibility_stack.push(Entry::Visibility::PUBLIC)
 
       current_owner = @owner_stack.last
-      @owner_stack << current_owner.singleton_klass(node.location, collect_comments(node)) if current_owner
+
+      if current_owner
+        @owner_stack << current_owner.singleton_klass(node.location, collect_comments(node))
+        @stack << "<Class:#{@stack.last}>"
+      end
     end
 
     sig { params(node: Prism::SingletonClassNode).void }
