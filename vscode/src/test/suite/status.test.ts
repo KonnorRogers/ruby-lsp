@@ -187,6 +187,7 @@ suite("StatusItems", () => {
         definition: true,
         workspaceSymbol: true,
         signatureHelp: true,
+        typeHierarchy: true,
       };
       const numberOfFeatures = Object.keys(features).length;
       const stub = sinon.stub(vscode.workspace, "getConfiguration").returns({
