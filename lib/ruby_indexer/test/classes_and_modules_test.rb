@@ -323,7 +323,7 @@ module RubyIndexer
       assert_equal("Bar", foo.parent_class)
 
       baz = T.must(@index["Baz"].first)
-      assert_nil(baz.parent_class)
+      assert_equal("Object", baz.parent_class)
 
       qux = T.must(@index["Something::Qux"].first)
       assert_equal("::Baz", qux.parent_class)

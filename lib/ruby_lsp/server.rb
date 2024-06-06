@@ -690,13 +690,13 @@ module RubyLsp
 
     sig { params(config_hash: T::Hash[String, T.untyped]).void }
     def perform_initial_indexing(config_hash)
-      index_core_classes
+      index_core_classes_and_modules
       index_ruby_code(config_hash)
     end
 
     sig { void }
-    def index_core_classes
-      RubyIndexer::RBSIndexer.new(@global_state.index).index_core_classes
+    def index_core_classes_and_modules
+      RubyIndexer::RBSIndexer.new(@global_state.index).index_core_classes_and_modules
     end
 
     sig { params(config_hash: T::Hash[String, T.untyped]).void }
