@@ -329,9 +329,6 @@ module RubyIndexer
 
     class Method < Member
       extend T::Sig
-      extend T::Helpers
-
-      abstract!
 
       sig { override.returns(T::Array[Parameter]) }
       attr_reader :parameters
@@ -438,12 +435,6 @@ module RubyIndexer
           :"(#{names_with_commas})"
         end
       end
-    end
-
-    class SingletonMethod < Method
-    end
-
-    class InstanceMethod < Method
     end
 
     # An UnresolvedAlias points to a constant alias with a right hand side that has not yet been resolved. For

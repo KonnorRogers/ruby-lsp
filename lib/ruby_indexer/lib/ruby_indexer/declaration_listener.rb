@@ -33,6 +33,8 @@ module RubyIndexer
         :on_class_node_leave,
         :on_module_node_enter,
         :on_module_node_leave,
+        :on_singleton_class_node_enter,
+        :on_singleton_class_node_leave,
         :on_def_node_enter,
         :on_def_node_leave,
         :on_call_node_enter,
@@ -108,6 +110,21 @@ module RubyIndexer
 
     sig { params(node: Prism::ModuleNode).void }
     def on_module_node_leave(node)
+      @stack.pop
+      @owner_stack.pop
+      @visibility_stack.pop
+    end
+
+    sig { params(node: Prism::SingletonClassNode).void }
+    def on_singleton_class_node_enter(node)
+      @visibility_stack.push(Entry::Visibility::PUBLIC)
+
+      current_owner = @owner_stack.last
+      @owner_stack << current_owner.singleton_klass(node.location, collect_comments(node)) if current_owner
+    end
+
+    sig { params(node: Prism::SingletonClassNode).void }
+    def on_singleton_class_node_leave(node)
       @stack.pop
       @owner_stack.pop
       @visibility_stack.pop
@@ -244,7 +261,7 @@ module RubyIndexer
 
       case node.receiver
       when nil
-        @index << Entry::InstanceMethod.new(
+        @index << Entry::Method.new(
           method_name,
           @file_path,
           node.location,
@@ -254,14 +271,14 @@ module RubyIndexer
           @owner_stack.last,
         )
       when Prism::SelfNode
-        @index << Entry::SingletonMethod.new(
+        @index << Entry::Method.new(
           method_name,
           @file_path,
           node.location,
           comments,
           node.parameters,
           current_visibility,
-          @owner_stack.last,
+          @owner_stack.last&.singleton_klass,
         )
       end
     end

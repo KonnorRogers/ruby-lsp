@@ -469,5 +469,39 @@ module RubyIndexer
       constant_path_references = T.must(@index["ConstantPathReferences"][0])
       assert_equal(["Foo::Bar", "Foo::Bar2"], constant_path_references.mixin_operation_module_names)
     end
+
+    def test_tracking_singleton_classes
+      index(<<~RUBY)
+        class Foo
+          # Some extra comments
+          class << self
+          end
+        end
+      RUBY
+
+      foo = T.must(@index["Foo"].first)
+      singleton = foo.singleton_klass
+      assert_equal(3, singleton.location.start_line)
+      assert_equal("Some extra comments", singleton.comments.join("\n"))
+    end
+
+    def test_dynamic_singleton_class_blocks
+      index(<<~RUBY)
+        class Foo
+          # Some extra comments
+          class << bar
+          end
+        end
+      RUBY
+
+      foo = T.must(@index["Foo"].first)
+      singleton = foo.singleton_klass
+
+      # Even though this is not correct, we consider any dynamic singleton class block as a regular singleton class.
+      # That pattern cannot be properly analyzed statically and assuming that it's always a regular singleton simplifies
+      # the implementation considerably.
+      assert_equal(3, singleton.location.start_line)
+      assert_equal("Some extra comments", singleton.comments.join("\n"))
+    end
   end
 end
